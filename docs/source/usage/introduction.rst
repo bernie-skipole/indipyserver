@@ -13,6 +13,10 @@ INDI - Instrument Neutral Distributed Interface.
 
 For further information on INDI, see :ref:`references`.
 
+indipyserver can be installed from Pypi:
+
+https://pypi.org/project/indipyserver/
+
 Drivers controlling instrumentation can be written, typically using the IPyDriver class from the associated indipydriver package, this server opens a port to which an INDI client can connect.
 
 You would create a script something like::
@@ -25,7 +29,11 @@ You would create a script something like::
     server = IPyServer(driver1, driver2, host="localhost", port=7624, maxconnections=5)
     asyncio.run(server.asyncrun())
 
-A connected client can then control all the drivers. The above illustrates multiple drivers can be served, however it could equally be one or none at all.
+A connected client can then control all the drivers. The above illustrates multiple drivers can be served.
+
+Note, the default host 'localhost' will only allow client connections from the localhost. If you want the port to allow external connections use a host name of '0.0.0.0'.
+
+Any INDI client can be used to connect to this port, an associated client 'indipyterm' is available.
 
 
 Third party drivers
