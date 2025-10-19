@@ -5,7 +5,7 @@ This package provides an IPyServer class used to serve the INDI protocol on a po
 
 INDI - Instrument Neutral Distributed Interface.
 
-See https://en.wikipedia.org/wiki/Instrument\_Neutral\_Distributed\_Interface
+See https://en.wikipedia.org/wiki/Instrument_Neutral_Distributed_Interface
 
 Drivers controlling instrumentation can be written, typically using the IPyDriver class from the associated indipydriver package, this server opens a port to which an INDI client can connect.
 
