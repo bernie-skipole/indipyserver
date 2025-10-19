@@ -24,7 +24,7 @@ A connected client can then control all the drivers. The above illustrates multi
 
 ## Third party drivers
 
-IPyServer can also run third party INDI drivers created with other languages or tools, using an add\_exdriver method to include executable drivers.
+IPyServer can also run third party INDI drivers created with other languages or tools, using an add_exdriver method to include executable drivers.
 
 For example, using drivers available from indilib:
 
@@ -33,8 +33,8 @@ For example, using drivers available from indilib:
 
     server = IPyServer(host="localhost", port=7624, maxconnections=5)
 
-    server.add\_exdriver("indi\_simulator\_telescope")
-    server.add\_exdriver("indi\_simulator\_ccd")
+    server.add_exdriver("indi_simulator_telescope")
+    server.add_exdriver("indi_simulator_ccd")
     asyncio.run(server.asyncrun())
 
 
@@ -43,7 +43,7 @@ Please note: The author has no relationship with indilib, these indipyserver and
 
 ## Networked instruments
 
-IPyServer also has an add\_remote method which can be used to add connections to remote servers, creating a tree network of servers:
+IPyServer also has an add_remote method which can be used to add connections to remote servers, creating a tree network of servers:
 
     import asyncio
     from indipyserver import IPyServer
@@ -51,8 +51,8 @@ IPyServer also has an add\_remote method which can be used to add connections to
 
     server = IPyServer(DriverA, DriverB, host="localhost", port=7624, maxconnections=5)
 
-    server.add\_remote(host="nameofserverB", port=7624, blob_enable=True)
-    server.add\_remote(host="nameofserverC", port=7624, blob_enable=True)
+    server.add_remote(host="nameofserverB", port=7624, blob_enable=True)
+    server.add_remote(host="nameofserverC", port=7624, blob_enable=True)
 
     asyncio.run(server.asyncrun())
 
