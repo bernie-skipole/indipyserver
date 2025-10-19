@@ -6,8 +6,6 @@ from datetime import datetime, timezone
 
 import xml.etree.ElementTree as ET
 
-from .ipydriver import IPyDriver
-
 from .remote import RemoteConnection
 
 from .exdriver import ExDriver
@@ -134,7 +132,7 @@ class IPyServer:
         self.exdrivers = []
 
         for driver in self.drivers:
-            if not isinstance(driver, IPyDriver):
+            if not hasattr(driver, 'data'):
                 raise TypeError("The drivers set in IPyServer must all be IPyDrivers")
             for devicename in driver:
                 if devicename in self.devices:
