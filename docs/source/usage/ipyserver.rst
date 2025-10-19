@@ -50,7 +50,7 @@ This example shows two INDI drivers available from indilib.org and both being se
 
     import asyncio
 
-    from indipydriver import IPyServer
+    from indipyserver import IPyServer
 
     server = IPyServer(host="localhost",
                        port=7624,

@@ -57,8 +57,12 @@ IPyServer also has an add_remote method which can be used to add connections to 
     asyncio.run(server.asyncrun())
 
 
-![INDI Network](https://github.com/bernie-skipole/indipydriver/raw/main/docs/source/usage/images/rem2.png)
+![INDI Network](https://github.com/bernie-skipole/indipyserver/raw/main/docs/source/usage/images/rem2.png)
 
 With such a layout, the client can control all the instruments.
 
 Drivers made with indipydriver, third party executable drivers and remote connections can all be served together.
+
+Further documentation can be found at:
+
+https://indipyserver.readthedocs.io/en/latest/index.html
