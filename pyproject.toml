@@ -1,0 +1,18 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "indipyserver"
+authors = [{name = "Bernard Czenkusz", email = "bernie@skipole.co.uk"}]
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: MIT License", "Operating System :: POSIX :: Linux","Topic :: Scientific/Engineering :: Astronomy", "Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator"]
+version = "0.0.1"
+description="Server for the INDI protocol."
+readme = "README.md"
+requires-python = ">=3.11"
+keywords=['indi', 'server', 'astronomy', 'instrument', 'remote', 'control']
+
+[project.urls]
+Documentation = "https://indipyserver.readthedocs.io"
+Source = "https://github.com/bernie-skipole/indipyserver"
