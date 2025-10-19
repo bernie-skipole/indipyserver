@@ -7,7 +7,11 @@ indipyserver development site:
 
 https://github.com/bernie-skipole/indipyserver
 
-The associated packages:
+https://pypi.org/project/indipyserver/
+
+https://indipyserver.readthedocs.io
+
+Associated packages:
 
 indipydriver
 ^^^^^^^^^^
