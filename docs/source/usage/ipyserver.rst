@@ -6,7 +6,7 @@ This server class is used to run IPyDriver instances and can also run executable
 If only executable drivers or remote servers are being used, and no IPyDriver instances are implemented, no drivers should be set.
 
 
-.. autoclass:: indipydriver.IPyServer
+.. autoclass:: indipyserver.IPyServer
    :members: asyncrun, add_remote, add_exdriver, send_message, shutdown
 
 The server has attributes:

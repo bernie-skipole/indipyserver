@@ -65,7 +65,7 @@ IPyServer also has an add_remote method which can be used to add connections to 
     asyncio.run(server.asyncrun())
 
 
-.. image:: ./rem2.png
+.. image:: ./images/rem2.png
 
 
 With such a layout, the client can control all the instruments.
