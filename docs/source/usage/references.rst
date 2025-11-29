@@ -14,7 +14,7 @@ https://indipyserver.readthedocs.io
 Associated packages:
 
 indipydriver
-^^^^^^^^^^
+^^^^^^^^^^^^
 
 https://github.com/bernie-skipole/indipydriver
 
