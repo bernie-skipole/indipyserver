@@ -8,6 +8,7 @@ indipyserver = Serving the INDI protocol
 
    usage/introduction
    usage/ipyserver
+   usage/clients
    usage/serving
    usage/references
    usage/license
