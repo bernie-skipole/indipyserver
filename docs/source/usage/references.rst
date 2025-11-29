@@ -22,12 +22,27 @@ https://pypi.org/project/indipydriver
 
 https://indipydriver.readthedocs.io
 
+
+indipyweb
+^^^^^^^^^
+
+Web server and INDI client, connects to an INDI serving port, and serves client pages for connected browsers.
+
+https://github.com/bernie-skipole/indipyweb
+
+https://pypi.org/project/indipyweb
+
+
 indipyterm
 ^^^^^^^^^^
 
 https://github.com/bernie-skipole/indipyterm
 
 https://pypi.org/project/indipyterm
+
+
+Other links
+^^^^^^^^^^^
 
 Examples of clients and drivers are collected at:
 
