@@ -96,3 +96,37 @@ A typical session would look like:
 Further information about indipyweb can be found from:
 
 https://github.com/bernie-skipole/indipyweb
+
+
+SSH Tunnel
+^^^^^^^^^^
+
+Typically the server will listen on localhost:7624, and a client will run on the same machine, and the port will not be externally exposed.
+
+On a secure network the port could be made externally visible by setting the server to listen on 0.0.0.0
+
+However, a commonly used method applicable to such listening services is to use an SSH tunnel.
+
+Assuming drivers and indipyserver are running on a remote device (raspberry5 in this example)
+
+The indipyserver on raspberry5 is set to listen on localhost:7624 only, so this port is not exposed.
+
+On my own PC, which has ssh public key access to raspberry5, I could simply create a session and run indipyterm on the raspberry5.
+
+However in this example I want to run indipyterm, or indipyweb locally on my PC.
+
+So on my PC I create a tunnel, using
+
+ssh -NL 7624:localhost:7624 bernard@raspberry5&
+
+This creates an SSH tunnel, and the final ampersand runs it in the background. A process such as "[1] 4208" will be shown.
+
+Then run indipyterm, or indipyweb which normally would communicate to my own localhost:7624. But in this case the tunnel forwards my own port 7624 to the raspberry5's localhost:7624, and indipyterm or indipyweb now connect to the indi service.
+
+This allows a web server to run on my own PC, giving local web access to a remote device via an encrypted ssh session.
+
+To kill the tunnel, type:
+
+kill %1
+
+Where the 1 comes from the "[1] 4208".
