@@ -5,9 +5,6 @@ This server class is used to run IPyDriver instances and can also run executable
 
 Note that the indipyweb client only uses one of these client connections, and multiple remote users can browser connect to the web service, though there will be performance issues at some point.
 
-If only executable drivers or remote servers are being used, and no IPyDriver instances are implemented, no drivers should be set.
-
-
 .. autoclass:: indipyserver.IPyServer
    :members: asyncrun, add_remote, add_exdriver, send_message, shutdown
 

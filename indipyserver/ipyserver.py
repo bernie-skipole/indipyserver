@@ -77,7 +77,10 @@ class IPyServer:
        should be awaited which will open a port, and the INDI service
        will be available for clients to connect.
 
-       drivers are IPyDriver objects this driver handles,
+       drivers are IPyDriver objects this driver handles. This is optional,
+       if no IPyDrivers are to be served, this class can still be constructed
+       to only serve executable drivers or remote connections
+
        host and port are "localhost" and 7624 as default
 
        maxconnections is the number of simultaneous client connections
