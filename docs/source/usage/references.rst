@@ -36,9 +36,36 @@ https://pypi.org/project/indipyweb
 indipyterm
 ^^^^^^^^^^
 
+INDI client providing a terminal connection to an INDI serving port
+
 https://github.com/bernie-skipole/indipyterm
 
 https://pypi.org/project/indipyterm
+
+
+indipyclient
+^^^^^^^^^^^^
+
+A Python package providing classes which operate client connectivity to a serving port. Used by the above clients.
+
+https://github.com/bernie-skipole/indipyclient
+
+https://pypi.org/project/indipyclient
+
+https://indipyclient.readthedocs.io
+
+
+indipyconsole
+^^^^^^^^^^^^^
+
+Rather crude terminal client, Linux only. However it has no dependencies outside of the Python standard library and if the source is copied, it can be run without a virtual environment using:
+
+python3 -m indipyconsole
+
+https://github.com/bernie-skipole/indipyconsole
+
+https://pypi.org/project/indipyconsole
+
 
 
 Other links
