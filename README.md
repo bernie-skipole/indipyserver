@@ -11,7 +11,7 @@ indipyserver can be installed from Pypi:
 
 https://pypi.org/project/indipyserver/
 
-Drivers controlling instrumentation can be written, this server opens a port to which an INDI client can connect.
+Drivers controlling instrumentation can be written using the indipydriver package. This server takes such drivers, and opens a port to which an INDI client can connect.
 
 You would create a script something like:
 
