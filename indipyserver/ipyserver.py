@@ -449,6 +449,13 @@ class _ClientConnection:
     def shutdown(self):
         "Shuts down the connection"
         self.connected = False
+        writer = getattr(self, "writer", None)
+        if writer is not None:
+            try:
+                writer.close()
+            except Exception:
+                pass
+
 
     async def handle_data(self, reader, writer):
         "Used by asyncio.start_server, called to handle a client connection"
