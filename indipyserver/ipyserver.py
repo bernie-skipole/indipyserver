@@ -645,28 +645,38 @@ class SendChecker:
         if xmldata.tag in ("getProperties", "delProperty"):
             return True
 
-        if xmldata.tag not in ("defBLOBVector", "setBLOBVector", 'newBLOBVector'):
-            # so anything other than a BLOB
-            if self.rxonly():
-                # Only blobs allowed
-                return False
-            return True
-
-        # so following checks only apply to BLOB vectors
-
         devicename = xmldata.get("device")
+
+        if devicename is None:
+            # The only traffic sent without a devicename is a message or a getProperties
+            if xmldata.tag == 'message':
+                return True
+            else:
+                # should never get here, missing devicename??
+                return False
 
         if devicename not in self.devicestatus:
             # devicename not recognised, add it
             self.devicestatus[devicename] = {"Default":"Never", "Properties":{}}
 
-        if xmldata.tag == "defBLOBVector":
+        devicedict = self.devicestatus[devicename]
+
+        if xmldata.tag not in ("defBLOBVector", "setBLOBVector", 'newBLOBVector'):
+            # so anything other than a BLOB, check if this device is BLOB only
+            if devicedict["Default"] == "Only":
+                # Cannot send non-Blobs for this device
+                return False
+            else:
+                # send this non-Blob
+                return True
+
+        # so following checks only apply to BLOB vectors
+
+        if xmldata.tag == "defBLOBVector":   # defBLOBVectors do not carry a BLOB
             return True
 
         if (xmldata.tag == "setBLOBVector") and (not xmldata):   # empty setBLOBVectors are allowed regardless
             return True
-
-        devicedict = self.devicestatus[devicename]
 
         # so we have a devicename, get propertyname
         name = xmldata.get("name")
@@ -681,6 +691,7 @@ class SendChecker:
             return False
         else:
             return True
+
 
     def setpermissions(self, rxdata):
         "Read the received enableBLOB xml and set permission in self.devicestatus"
@@ -709,13 +720,4 @@ class SendChecker:
             # add it to devicedict, and hence to self.devicestatus
             devicedict["Properties"][name] = status
 
-    def rxonly(self):
-        "Returns True if any device or property has been set to BLOBs only"
-        for devicedict in self.devicestatus.values():
-            if devicedict["Default"] == "Only":
-                return True
-            properties = devicedict["Properties"]
-            for status in properties.values():
-                if status == "Only":
-                    return True
-        return False
+

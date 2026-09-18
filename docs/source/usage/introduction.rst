@@ -35,6 +35,8 @@ Note, the default host 'localhost' will only allow client connections from the l
 
 Any INDI client can be used to connect to this port, an associated client 'indipyterm' is available.
 
+The server can be shutdown using CTRL-C or by calling the server.shutdown() method.
+
 
 Third party drivers
 ^^^^^^^^^^^^^^^^^^^
