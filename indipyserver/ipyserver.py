@@ -13,52 +13,6 @@ from .exdriver import ExDriver
 logger = logging.getLogger(__name__)
 
 
-# All xml data should be contained in one of the following tags
-TAGS = (b'getProperties',
-        b'newTextVector',
-        b'newNumberVector',
-        b'newSwitchVector',
-        b'newBLOBVector',
-        b'enableBLOB',
-        b'message',
-        b'delProperty',
-        b'defSwitchVector',
-        b'setSwitchVector',
-        b'defLightVector',
-        b'setLightVector',
-        b'defTextVector',
-        b'setTextVector',
-        b'defNumberVector',
-        b'setNumberVector',
-        b'defBLOBVector',
-        b'setBLOBVector'
-       )
-
-
-# Note these are strings, as they are used for checking xmldata.tag values
-
-DEFTAGS = ( 'defSwitchVector',
-            'defLightVector',
-            'defTextVector',
-            'defNumberVector',
-            'defBLOBVector'
-          )
-
-NEWTAGS = ('newTextVector',
-           'newNumberVector',
-           'newSwitchVector',
-           'newBLOBVector'
-          )
-
-
-# _STARTTAGS is a tuple of ( b'<defTextVector', ...  ) data received will be tested to start with such a starttag
-_STARTTAGS = tuple(b'<' + tag for tag in TAGS)
-
-
-# _ENDTAGS is a tuple of ( b'</defTextVector>', ...  ) data received will be tested to end with such an endtag
-_ENDTAGS = tuple(b'</' + tag + b'>' for tag in TAGS)
-
-
 
 def cleanque(que):
     "Clears out a que"
@@ -367,6 +321,13 @@ class _DriverComms:
        Any data received on self.xml_data_que will be sent to the
        driver by calling its driver.receivedata method"""
 
+    DEFTAGS = ( 'defSwitchVector',
+                'defLightVector',
+                'defTextVector',
+                'defNumberVector',
+                'defBLOBVector'
+              )
+
     def __init__(self, driver, con_id, xml_data_que):
 
         # This object is attached to this driver
@@ -397,7 +358,7 @@ class _DriverComms:
                 return
 
         # check for incoming duplicates
-        if xmldata.tag in DEFTAGS:
+        if xmldata.tag in self.DEFTAGS:
             devicename = xmldata.get("device")
             if devicename is None:
                 # invalid definition
@@ -428,8 +389,32 @@ class _DriverComms:
 
 
 class _ClientConnection:
-
     "Handles a client connection"
+
+
+    # All xml data should be contained in one of the following tags
+    TAGS = ('getProperties',
+            'newTextVector',
+            'newNumberVector',
+            'newSwitchVector',
+            'newBLOBVector',
+            'enableBLOB',
+            'message',
+            'delProperty',
+            'defSwitchVector',
+            'setSwitchVector',
+            'defLightVector',
+            'setLightVector',
+            'defTextVector',
+            'setTextVector',
+            'defNumberVector',
+            'setNumberVector',
+            'defBLOBVector',
+            'setBLOBVector'
+           )
+
+
+
 
     def __init__(self, con_id, xml_data_que):
 
@@ -440,10 +425,7 @@ class _ClientConnection:
 
         # self.connected is True if this pool object is running a connection
         self.connected = False
-        self._remainder = b""    # Used to store intermediate data
         self.sendchecker = None
-
-        self.rx = None
 
 
     def shutdown(self):
@@ -460,7 +442,6 @@ class _ClientConnection:
     async def handle_data(self, reader, writer):
         "Used by asyncio.start_server, called to handle a client connection"
         self.connected = True
-        self._remainder = b""    # Used to store intermediate data
         self.writer = writer
         self.reader = reader
         self.sendchecker = SendChecker()
@@ -497,23 +478,58 @@ class _ClientConnection:
 
 
     async def _client_rx(self):
-        "Receives data coming in to port from client"
+        """Receive and dispatch INDI XML elements from the client TCP stream.
 
+        Uses XMLPullParser for streaming, chunk-at-a-time parsing with no
+        user-space accumulation.  Because INDI sends a sequence of top-level
+        XML elements with no document root, the stream is wrapped in a
+        synthetic <root> element.  "end" events whose depth returns to 1
+        (direct children of the wrapper) mark complete INDI messages.
+        """
+
+        ### Note: using ET.XMLPullParser as contributed by arisada in submission to indipyclient
+
+
+        def _make_parser():
+            p = ET.XMLPullParser(events=("start", "end"))
+            p.feed(b"<root>")
+            d = 0
+            root_elem = None
+            for ev, el in p.read_events():
+                if ev == "start":
+                    d += 1
+                    root_elem = el   # the synthetic <root> Element
+            return p, d, root_elem
+
+        parser, depth, root_elem = _make_parser()
         try:
-            # get block of xml.etree.ElementTree data
-            # from self._xmlinput and send it to xml_data_que together with connection_id
             while self.connected:
-                xmldata = await self._xmlinput()
-                if xmldata is None:
-                    return
-                if xmldata.tag == "enableBLOB":
-                    # set permission flags in the sendchecker object
-                    self.sendchecker.setpermissions(xmldata)
-                    # do not broadcast this, so continue
-                    continue
-                # pass xmldata to xml_data_que
-                await self.xml_data_que.put( (self.con_id, xmldata) )
                 await asyncio.sleep(0)
+                data = await self.reader.read(65536)
+                try:
+                    parser.feed(data)
+                except ET.ParseError:
+                    logger.error("_ClientConnection: XML parse error, resetting parser state")
+                    parser, depth, root_elem = _make_parser()
+                    continue
+                for event, element in parser.read_events():
+                    if event == "start":
+                        depth += 1
+                    elif event == "end":
+                        depth -= 1
+                        if depth == 1:
+                            # A complete top-level INDI element is ready.
+                            if element.tag not in self.TAGS:
+                                await asyncio.sleep(0)
+                                continue
+                            if element.tag == "enableBLOB":
+                                # set permission flags in the sendchecker object
+                                self.sendchecker.setpermissions(element)
+                                # do not broadcast this
+                            else:
+                                # pass element to xml_data_que
+                                await self.xml_data_que.put( (self.con_id, element) )
+                            await asyncio.sleep(0)
         except ConnectionError:
             # re-raise this without creating a report, as it probably indicates
             # a normal connection drop
@@ -522,97 +538,6 @@ class _ClientConnection:
             # possibly some other error, so report it
             logger.exception("Exception report from _ClientConnection._client_rx")
             raise
-
-
-    async def _xmlinput(self):
-        """get data from  _datainput, parse it, and return it as xml.etree.ElementTree object
-           Returns None if stop flags arises"""
-        message = b''
-        messagetagnumber = None
-        while self.connected:
-            await asyncio.sleep(0)
-            data = await self._datainput()
-            # data is either None, or binary data ending in b">"
-            if data is None:
-                return
-            if not self.connected:
-                return
-            if not message:
-                # data is expected to start with <tag, first strip any newlines
-                data = data.strip()
-                for index, st in enumerate(_STARTTAGS):
-                    if data.startswith(st):
-                        messagetagnumber = index
-                        break
-                    elif st in data:
-                        # remove any data prior to a starttag
-                        positionofst = data.index(st)
-                        data = data[positionofst:]
-                        messagetagnumber = index
-                        break
-                else:
-                    # data does not start with a recognised tag, so ignore it
-                    # and continue waiting for a valid message start
-                    continue
-                # set this data into the received message
-                message = data
-                # either further children of this tag are coming, or maybe its a single tag ending in "/>"
-                if message.endswith(b'/>'):
-                    # the message is complete, handle message here
-                    try:
-                        root = ET.fromstring(message.decode("us-ascii"))
-                    except Exception:
-                        # failed to parse the message, continue at beginning
-                        message = b''
-                        messagetagnumber = None
-                        continue
-                    # xml datablock done, return it
-                    return root
-                # and read either the next message, or the children of this tag
-                continue
-            # To reach this point, the message is in progress, with a messagetagnumber set
-            # keep adding the received data to message, until an endtag is reached
-            message += data
-            if message.endswith(_ENDTAGS[messagetagnumber]):
-                # the message is complete, handle message here
-                try:
-                    root = ET.fromstring(message.decode("us-ascii"))
-                except Exception:
-                    # failed to parse the message, continue at beginning
-                    message = b''
-                    messagetagnumber = None
-                    continue
-                # xml datablock done, return it
-                return root
-            # so message is in progress, with a messagetagnumber set
-            # but no valid endtag received yet, so continue the loop
-
-
-    async def _datainput(self):
-        """Waits for binary string of data ending in > from the port
-           Returns None if stop flags arises"""
-        binarydata = b""
-        while self.connected:
-            await asyncio.sleep(0)
-            try:
-                data = await self.reader.readuntil(separator=b'>')
-            except asyncio.LimitOverrunError:
-                data = await self.reader.read(n=32000)
-            except asyncio.IncompleteReadError:
-                binarydata = b""
-                await asyncio.sleep(0.1)
-                continue
-            if not data:
-                await asyncio.sleep(0.1)
-                continue
-            # data received
-            if b">" in data:
-                binarydata = binarydata + data
-                return binarydata
-            # data has content but no > found
-            binarydata += data
-            # could put a max value here to stop this increasing indefinetly
-
 
 
 # Command to control whether setBLOBs should be sent to this channel from a given Device. They can
