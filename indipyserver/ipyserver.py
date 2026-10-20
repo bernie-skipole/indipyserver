@@ -328,6 +328,13 @@ class _DriverComms:
                 'defBLOBVector'
               )
 
+    NEWTAGS = ('newTextVector',
+               'newNumberVector',
+               'newSwitchVector',
+               'newBLOBVector'
+              )
+
+
     def __init__(self, driver, con_id, xml_data_que):
 
         # This object is attached to this driver
@@ -357,9 +364,10 @@ class _DriverComms:
             if version != "1.7":
                 return
 
+         devicename = xmldata.get("device")
+
         # check for incoming duplicates
         if xmldata.tag in self.DEFTAGS:
-            devicename = xmldata.get("device")
             if devicename is None:
                 # invalid definition
                 return
@@ -369,6 +377,14 @@ class _DriverComms:
                 self.driver.shutdown()
                 raise RuntimeError(f"Device name {devicename} is duplicated in the attached drivers.")
 
+        # Remove incoming NEW tags if not meant for this driver
+        # however if driver is a RemoteConnection allow them, since there may be remote clients that want copies.
+        if (xmldata.tag in self.NEWTAGS) and not isinstance(self.driver, RemoteConnection):
+            if devicename is None:
+                # invalid definition
+                return
+            if devicename not in self.driver:
+                return
 
         # call the drivers receive data function
         await self.driver._readdata(xmldata)
@@ -457,9 +473,9 @@ class _ClientConnection:
 
 
     async def _client_tx(self, con_id, xmldata):
-        "Sends data from port to client"
+        "Sends data to client"
         if self.con_id == con_id:
-            # do not tx data this driver is receiving
+            # do not tx data this connection is receiving
             return
         if not self.connected:
             return

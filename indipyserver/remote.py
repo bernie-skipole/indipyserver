@@ -52,15 +52,6 @@ _STARTTAGS = tuple(b'<' + tag for tag in TAGS)
 _ENDTAGS = tuple(b'</' + tag + b'>' for tag in TAGS)
 
 
-def _makestart(element):
-    "Given an xml element, returns a string of its start, including < tag attributes >"
-    attriblist = ["<", element.tag]
-    for key,value in element.attrib.items():
-        attriblist.append(f" {key}=\"{value}\"")
-    attriblist.append(">")
-    return "".join(attriblist)
-
-
 class RemoteConnection:
 
     def __init__(self, host, port,
