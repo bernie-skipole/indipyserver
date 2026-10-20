@@ -364,7 +364,7 @@ class _DriverComms:
             if version != "1.7":
                 return
 
-         devicename = xmldata.get("device")
+        devicename = xmldata.get("device")
 
         # check for incoming duplicates
         if xmldata.tag in self.DEFTAGS:
