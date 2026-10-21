@@ -287,6 +287,8 @@ class RemoteConnection:
                         if depth == 1:
                             # A complete top-level INDI element is ready.
                             await self._dispatch_xml(element)
+                            if root_elem is not None:
+                                root_elem.remove(element)
                             await asyncio.sleep(0)
         except ConnectionError:
             # re-raise this without creating a report, as it probably indicates

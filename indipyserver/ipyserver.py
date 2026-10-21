@@ -535,16 +535,16 @@ class _ClientConnection:
                         depth -= 1
                         if depth == 1:
                             # A complete top-level INDI element is ready.
-                            if element.tag not in self.TAGS:
-                                await asyncio.sleep(0)
-                                continue
-                            if element.tag == "enableBLOB":
-                                # set permission flags in the sendchecker object
-                                self.sendchecker.setpermissions(element)
-                                # do not broadcast this
-                            else:
-                                # pass element to xml_data_que
-                                await self.xml_data_que.put( (self.con_id, element) )
+                            if element.tag in self.TAGS:
+                                if element.tag == "enableBLOB":
+                                    # set permission flags in the sendchecker object
+                                    self.sendchecker.setpermissions(element)
+                                    # do not broadcast this
+                                else:
+                                    # pass element to xml_data_que
+                                    await self.xml_data_que.put( (self.con_id, element) )
+                            if root_elem is not None:
+                                root_elem.remove(element)
                             await asyncio.sleep(0)
         except ConnectionError:
             # re-raise this without creating a report, as it probably indicates
