@@ -272,7 +272,7 @@ class RemoteConnection:
         try:
             while self.connected and (not self._stop):
                 await asyncio.sleep(0)
-                data = await self.reader.read(65536)
+                data = await self._reader.read(65536)
                 try:
                     parser.feed(data)
                 except ET.ParseError:
