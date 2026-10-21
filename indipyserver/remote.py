@@ -8,51 +8,37 @@ from datetime import datetime, timezone
 import logging
 logger = logging.getLogger(__name__)
 
-# All xml data received from the remote connection should be contained in one of the following tags
-TAGS = (b'message',
-        b'newTextVector',
-        b'newNumberVector',
-        b'newSwitchVector',
-        b'newBLOBVector',
-        b'delProperty',
-        b'defSwitchVector',
-        b'setSwitchVector',
-        b'defLightVector',
-        b'setLightVector',
-        b'defTextVector',
-        b'setTextVector',
-        b'defNumberVector',
-        b'setNumberVector',
-        b'defBLOBVector',
-        b'setBLOBVector',
-        b'getProperties'
-       )
-
-
-# Note these are strings, as they are used for checking xmldata.tag values
-
-DEFTAGS = ( 'defSwitchVector',
-            'defLightVector',
-            'defTextVector',
-            'defNumberVector',
-            'defBLOBVector'
-          )
-
-NEWTAGS = ('newTextVector',
-           'newNumberVector',
-           'newSwitchVector',
-           'newBLOBVector'
-          )
-
-
-# _STARTTAGS is a tuple of ( b'<defTextVector', ...  ) data received will be tested to start with such a starttag
-_STARTTAGS = tuple(b'<' + tag for tag in TAGS)
-
-# _ENDTAGS is a tuple of ( b'</defTextVector>', ...  ) data received will be tested to end with such an endtag
-_ENDTAGS = tuple(b'</' + tag + b'>' for tag in TAGS)
-
 
 class RemoteConnection:
+
+    # All xml data should be contained in one of the following tags
+    TAGS = ('getProperties',
+            'newTextVector',
+            'newNumberVector',
+            'newSwitchVector',
+            'newBLOBVector',
+            'enableBLOB',
+            'message',
+            'delProperty',
+            'defSwitchVector',
+            'setSwitchVector',
+            'defLightVector',
+            'setLightVector',
+            'defTextVector',
+            'setTextVector',
+            'defNumberVector',
+            'setNumberVector',
+            'defBLOBVector',
+            'setBLOBVector'
+           )
+
+    DEFTAGS = ( 'defSwitchVector',
+                'defLightVector',
+                'defTextVector',
+                'defNumberVector',
+                'defBLOBVector'
+              )
+
 
     def __init__(self, host, port,
                        blob_enable,
@@ -259,142 +245,96 @@ class RemoteConnection:
 
 
     async def _run_rx(self):
-        "accept xml.etree.ElementTree data from the connection"
+        """Receive and dispatch INDI XML elements from the connection TCP stream.
+
+        Uses XMLPullParser for streaming, chunk-at-a-time parsing with no
+        user-space accumulation.  Because INDI sends a sequence of top-level
+        XML elements with no document root, the stream is wrapped in a
+        synthetic <root> element.  "end" events whose depth returns to 1
+        (direct children of the wrapper) mark complete INDI messages.
+        """
+
+        ### Note: using ET.XMLPullParser as contributed by arisada in submission to indipyclient
+
+
+        def _make_parser():
+            p = ET.XMLPullParser(events=("start", "end"))
+            p.feed(b"<root>")
+            d = 0
+            root_elem = None
+            for ev, el in p.read_events():
+                if ev == "start":
+                    d += 1
+                    root_elem = el   # the synthetic <root> Element
+            return p, d, root_elem
+
+        parser, depth, root_elem = _make_parser()
         try:
-            # get block of xml.etree.ElementTree data
-            # from self._xmlinput
             while self.connected and (not self._stop):
-                xmldata = await self._xmlinput()
-                if xmldata is None:
-                    return
-                if (not self.blob_enable) and (xmldata.tag in ("setBLOBVector", "newBLOBVector") ):
-                    # blobs not enabled
+                await asyncio.sleep(0)
+                data = await self.reader.read(65536)
+                try:
+                    parser.feed(data)
+                except ET.ParseError:
+                    logger.error("RemoteConnection: XML parse error, resetting parser state")
+                    parser, depth, root_elem = _make_parser()
                     continue
-
-
-                devicename = xmldata.get("device")
-                vectorname = xmldata.get("name")
-
-                if xmldata.tag in DEFTAGS:
-                    if (devicename is None) or (vectorname is None):
-                        continue
-                    if devicename not in self.devicenames:
-                        self.devicenames.add(devicename)
-                    if xmldata.tag == "defBLOBVector":
-                        # every time a defBLOBVector is received, send an enable BLOB instruction
-                        senddata = ET.Element('enableBLOB')
-                        senddata.set("device", devicename)
-                        senddata.set("name", vectorname)
-                        if self.blob_enable:
-                            senddata.text = "Also"
-                        else:
-                            senddata.text = "Never"
-                        await self.send(senddata)
-
-                # and pass data to other drivers and connections
-                await self._commsobj.run_tx(xmldata)
-                # log it, then continue with next block
-                if logger.isEnabledFor(logging.DEBUG):
-                    self._logrx(xmldata)
+                for event, element in parser.read_events():
+                    if event == "start":
+                        depth += 1
+                    elif event == "end":
+                        depth -= 1
+                        if depth == 1:
+                            # A complete top-level INDI element is ready.
+                            await self._dispatch_xml(element)
+                            await asyncio.sleep(0)
         except ConnectionError:
+            # re-raise this without creating a report, as it probably indicates
+            # a normal connection drop
             raise
         except Exception:
+            # possibly some other error, so report it
             logger.exception("Exception report from RemoteConnection._run_rx")
             raise
 
 
+    async def _dispatch_xml(self, xmldata):
+        "_run_rx dispatches to here, which does final checking/logging and sends on to _commsobj.run_tx"
 
+        if not self.connected or self._stop:
+            return
 
-    async def _xmlinput(self):
-        """get received data, parse it, and return it as xml.etree.ElementTree object
-           Returns None if notconnected/stop flags arises"""
-        message = b''
-        messagetagnumber = None
-        while self.connected and (not self._stop):
-            await asyncio.sleep(0)
-            data = await self._datainput()
-            # data is either None, or binary data ending in b">"
-            if data is None:
+        if xmldata.tag not in self.TAGS:
+            return
+
+        if (not self.blob_enable) and (xmldata.tag in ("setBLOBVector", "newBLOBVector") ):
+            # blobs not enabled
+            return
+
+        devicename = xmldata.get("device")
+        vectorname = xmldata.get("name")
+
+        if xmldata.tag in self.DEFTAGS:
+            if (devicename is None) or (vectorname is None):
                 return
-            if not self.connected:
-                return
-            if self._stop:
-                return
-            if not message:
-                # data is expected to start with <tag, first strip any newlines
-                data = data.strip()
-                for index, st in enumerate(_STARTTAGS):
-                    if data.startswith(st):
-                        messagetagnumber = index
-                        break
-                    elif st in data:
-                        # remove any data prior to a starttag
-                        positionofst = data.index(st)
-                        data = data[positionofst:]
-                        messagetagnumber = index
-                        break
+            if devicename not in self.devicenames:
+                self.devicenames.add(devicename)
+            if xmldata.tag == "defBLOBVector":
+                # every time a defBLOBVector is received, send an enable BLOB instruction
+                senddata = ET.Element('enableBLOB')
+                senddata.set("device", devicename)
+                senddata.set("name", vectorname)
+                if self.blob_enable:
+                    senddata.text = "Also"
                 else:
-                    # data does not start with a recognised tag, so ignore it
-                    # and continue waiting for a valid message start
-                    continue
-                # set this data into the received message
-                message = data
-                # either further children of this tag are coming, or maybe its a single tag ending in "/>"
-                if message.endswith(b'/>'):
-                    # the message is complete, handle message here
-                    try:
-                        root = ET.fromstring(message.decode("us-ascii"))
-                    except ET.ParseError:
-                       # failed to parse the message, continue at beginning
-                        message = b''
-                        messagetagnumber = None
-                        continue
-                    # xml datablock done, return it
-                    return root
-                # and read either the next message, or the children of this tag
-                continue
-            # To reach this point, the message is in progress, with a messagetagnumber set
-            # keep adding the received data to message, until an endtag is reached
-            message += data
-            if message.endswith(_ENDTAGS[messagetagnumber]):
-                # the message is complete, handle message here
-                try:
-                    root = ET.fromstring(message.decode("us-ascii"))
-                except ET.ParseError:
-                    # failed to parse the message, continue at beginning
-                    message = b''
-                    messagetagnumber = None
-                    continue
-                # xml datablock done, return it
-                return root
-            # so message is in progress, with a messagetagnumber set
-            # but no valid endtag received yet, so continue the loop
+                    senddata.text = "Never"
+                await self.send(senddata)
 
-
-    async def _datainput(self):
-        """Waits for binary string of data ending in > from the port
-           Returns None if notconnected/stop flags arises"""
-        binarydata = b""
-        while self.connected and (not self._stop):
-            await asyncio.sleep(0)
-            try:
-                data = await self._reader.readuntil(separator=b'>')
-            except asyncio.LimitOverrunError:
-                data = await self._reader.read(n=32000)
-            except asyncio.IncompleteReadError:
-                binarydata = b""
-                await asyncio.sleep(0.1)
-                continue
-            if not data:
-                await asyncio.sleep(0.01)
-                continue
-            # data received
-            if b">" in data:
-                binarydata = binarydata + data
-                return binarydata
-            # data has content but no > found
-            binarydata += data
-            # could put a max value here to stop this increasing indefinetly
+        # and pass data to other drivers and connections
+        await self._commsobj.run_tx(xmldata)
+        # log it, then continue with next block
+        if logger.isEnabledFor(logging.DEBUG):
+            self._logrx(xmldata)
 
 
     async def send_getProperties(self):
