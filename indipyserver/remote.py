@@ -147,10 +147,11 @@ class RemoteConnection:
            and will be sent to all drivers and connections."""
         try:
             logger.warning(message)
-            timestamp = datetime.now(tz=timezone.utc)
-            timestamp = timestamp.replace(tzinfo=None)
-            xmldata = ET.fromstring(f"<message timestamp=\"{timestamp.isoformat(sep='T')}\" message=\"{message}\" />")
-            await self._commsobj.run_tx_everywhere(xmldata)
+            if self._commsobj is not None:
+                timestamp = datetime.now(tz=timezone.utc)
+                timestamp = timestamp.replace(tzinfo=None)
+                xmldata = ET.fromstring(f"<message timestamp=\"{timestamp.isoformat(sep='T')}\" message=\"{message}\" />")
+                await self._commsobj.run_tx_everywhere(xmldata)
         except Exception :
             logger.exception("Exception report from RemoteConnection.warning method")
 
@@ -333,7 +334,8 @@ class RemoteConnection:
                 await self.send(senddata)
 
         # and pass data to other drivers and connections
-        await self._commsobj.run_tx(xmldata)
+        if self._commsobj is not None:
+            await self._commsobj.run_tx(xmldata)
         # log it, then continue with next block
         if logger.isEnabledFor(logging.DEBUG):
             self._logrx(xmldata)
