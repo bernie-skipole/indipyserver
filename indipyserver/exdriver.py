@@ -140,28 +140,34 @@ class ExDriver:
         await self.proc.stdin.drain()
 
 
-    def _removexmldec(self, data, remainder):
-        """Called from _run_tx, returns data with <?xml version='1.0'?> taken out, with remainder,
+    def _removexmldec(self, data, remainder, target):
+        """Called from _run_tx, returns data with target byte string taken out, with remainder,
            required in case chunk contains part of that string"""
+
+        # target is typically b"<?xml version='1.0'?>"
+
         fulldata = remainder+data
-        datalist = fulldata.split(b"<?xml version='1.0'?>")
+        datalist = fulldata.split(target)
         lastitem = datalist[-1]
         firstitem = datalist[0:-1]
         if firstitem:
+            # target found, lastitem is a list of byte strings separated by the target
+            # but the lastitem may contain a partial target
             return b''.join(firstitem), lastitem
-        # declaration not found, lastitem is the whole of the string,
-        # If lastitem is returned as the remainder, then the remainder will keep on growing
-        # so must stop this.
-        # If last character is not in partial decleration, then ok
-        # note, last character '>' is also ok, so not included in this test string
-        if lastitem[-1] not in b"<?xml version='1.0'?":
-            # for example, if character is > then a whole declaration would have been found
-            # any other character means it cannot be a partial declaration, so empty remainder
+        # target not found, firstitem is empty, lastitem is the whole of the string,
+        # If lastitem is returned as the remainder, then the remainder will keep on
+        # growing so must stop this.
+        # If last character is not in the target, then lastitem cannot contain a partial target
+        if lastitem[-1] not in target:
+            # so lastitem can be returned with no remainder
             return lastitem, b''
-        # may still be in, for example 'something-v' but do not want remainder growing
-        if len(lastitem) > 20:  # len(b"<?xml version='1.0'?>") - 1
-            return lastitem[0:-20], lastitem[-20:]
-        # if len lastitem is 20 or less
+        # so a partial target may still be in lastitem, split lastitem into two parts, so
+        # the remainder is of length len(target) - 1
+        lent = len(target) - 1
+        mlent = -lent
+        if len(lastitem) > lent:
+            return lastitem[0:mlent], lastitem[mlent:]
+        # if len lastitem is lent or less, lastitem is the remainder
         return b'', lastitem
 
 
@@ -195,14 +201,23 @@ class ExDriver:
         parser, depth, root_elem = _make_parser()
 
         remainder = b""
+        target = None
 
         try:
             while not self._stop:
                 await asyncio.sleep(0)
-                data = await self.proc.stdout.read(100)
-                data, remainder =  self._removexmldec(data, remainder)
-                if not data:
-                    continue
+                data = await self.proc.stdout.read(4096)
+                if target is None:
+                    if b"<?xml version='1.0'?>" in data:
+                        target = b"<?xml version='1.0'?>"
+                    elif b"<?xml version=\"1.0\"?>" in data:
+                        target = b"<?xml version=\"1.0\"?>"
+                    else:
+                        target = b""
+                if target:
+                    data, remainder =  self._removexmldec(data, remainder, target)
+                    if not data:
+                        continue
                 try:
                     parser.feed(data)
                 except ET.ParseError:
