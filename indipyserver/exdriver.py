@@ -141,34 +141,35 @@ class ExDriver:
 
 
     def _removexmldec(self, data, remainder, target):
-        """Called from _run_tx, returns data with target byte string taken out, with remainder,
-           required in case chunk contains part of that string"""
+        """Called from _run_tx, returns data with target byte string taken out,
+           with remainder required in case chunk contains part of the target string"""
 
         # target is typically b"<?xml version='1.0'?>"
 
         fulldata = remainder+data
         datalist = fulldata.split(target)
         lastitem = datalist[-1]
-        firstitem = datalist[0:-1]
-        if firstitem:
-            # target found, lastitem is a list of byte strings separated by the target
+        firstlist = datalist[0:-1]
+        if firstlist:
+            # target found, firstlist is a list of byte strings separated by the target
             # but the lastitem may contain a partial target
-            return b''.join(firstitem), lastitem
-        # target not found, firstitem is empty, lastitem is the whole of the string,
-        # If lastitem is returned as the remainder, then the remainder will keep on
-        # growing so must stop this.
+            newdata = b''.join(firstlist)
+        else:
+            # target not found, all data is in lastitem
+            newdata = b''
         # If last character is not in the target, then lastitem cannot contain a partial target
         if lastitem[-1] not in target:
-            # so lastitem can be returned with no remainder
-            return lastitem, b''
+            # so no partial target in lastitem
+            newdata = newdata + lastitem
+            return newdata, b''
         # so a partial target may still be in lastitem, split lastitem into two parts, so
         # the remainder is of length len(target) - 1
         lent = len(target) - 1
-        mlent = -lent
         if len(lastitem) > lent:
-            return lastitem[0:mlent], lastitem[mlent:]
-        # if len lastitem is lent or less, lastitem is the remainder
-        return b'', lastitem
+            mlent = -lent
+            return newdata+lastitem[0:mlent], lastitem[mlent:]
+        # if len lastitem is of length lent or less, lastitem is the remainder
+        return newdata, lastitem
 
 
 
@@ -216,6 +217,10 @@ class ExDriver:
                         target = b""
                 if target:
                     data, remainder =  self._removexmldec(data, remainder, target)
+                    if remainder.endswith(b">"):
+                        # remainder cannot be a partial target
+                        data = data+remainder
+                        remainder = b''
                     if not data:
                         continue
                 try:
